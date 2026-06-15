@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=760, initial-scale=1.0"/>
+<title>Memory Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d0d38;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: 'Press Start 2P', monospace;
+  overflow: hidden;
+}
+
+.game-wrap {
+  width: 760px;
+  height: 430px;
+  background: #0d0d38;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  position: relative;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, 108px);
+  grid-template-rows: repeat(3, 118px);
+  gap: 10px;
+}
+
+.card {
+  width: 108px;
+  height: 118px;
+  position: relative;
+  cursor: pointer;
+  perspective: 600px;
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  border-radius: 8px;
+}
+
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.card-back {
+  background: #1a1a4a;
+  border: 2px solid #2a2a5a;
+  transform: rotateY(0deg);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.card:not(.selected):not(.matched) .card-back:hover {
+  border-color: #aaaaff;
+  background: #22224a;
+}
+
+.card.selected .card-back {
+  border-color: #aaaaff;
+  border-width: 2px;
+  background: #1a1a4a;
+}
+
+.card-back i { font-size: 36px; color: #3a3a7a; }
+.card.selected .card-back i { color: #aaaaff; }
+
+.card-front {
+  background: #0a0a2e;
+  border: 2px solid #2a2a5a;
+  transform: rotateY(180deg);
+}
+
+.card-front i { font-size: 36px; }
+.card-front .card-lbl { font-size: 7px; color: #7777bb; letter-spacing: 0.5px; }
+
+.card.matched { cursor: default; }
+
+.card.matched .card-front {
+  background: #0a2a0a;
+  border-color: #3d8a3d;
+  border-width: 2px;
+}
+.card.matched .card-front .card-lbl { color: #44cc44; }
+
+.card.no-match .card-front {
+  border-color: #e24b4a;
+  border-width: 2px;
+  background: #2a0a0a;
+}
+
+.win-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,10,46,0.93);
+  border-radius: 8px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  z-index: 100;
+}
+.win-overlay.show { display: flex; }
+
+.win-title-wrap { position: relative; height: 50px; display: flex; align-items: center; justify-content: center; }
+.win-s2 { position: absolute; font-size: 36px; color: #5a3500; letter-spacing: 3px; top: 4px; left: 4px; white-space: nowrap; }
+.win-s1 { position: absolute; font-size: 36px; color: #c8860a; letter-spacing: 3px; top: 2px; left: 2px; white-space: nowrap; }
+.win-main { position: relative; font-size: 36px; color: #f5e680; letter-spacing: 3px; white-space: nowrap; }
+
+.win-sub { font-size: 9px; color: #aaaaff; letter-spacing: 1px; }
+.win-stats { display: flex; gap: 24px; }
+.win-stat { text-align: center; background: #0a0a2e; border: 2px solid #2a2a5a; border-radius: 6px; padding: 10px 16px; }
+.win-stat-val { font-size: 20px; color: #f5e680; display: block; margin-bottom: 5px; }
+.win-stat-lbl { font-size: 6px; color: #7777bb; }
+
+.win-btns { display: flex; gap: 12px; }
+.win-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px; border-radius: 6px; padding: 10px 16px;
+  border: 2px solid; cursor: pointer; letter-spacing: 0.5px;
+}
+.win-btn-green { background: #1a7a1a; border-color: #3d8a3d; color: #fff; }
+.win-btn-green:hover { background: #22a022; }
+.win-btn-blue  { background: #1a1a4a; border-color: #5566cc; color: #aaaaff; }
+.win-btn-blue:hover { background: #2a2a6a; color: #fff; }
+
+.confetti-piece {
+  position: absolute;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+  pointer-events: none;
+}
+@keyframes confettiFall {
+  0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(460px) rotate(720deg); opacity: 0; }
+}
+
+.countdown-bar {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 4px;
+  background: #5566cc;
+  border-radius: 0 0 0 8px;
+  width: 100%;
+  transform-origin: left;
+}
+</style>
+</head>
+<body>
+
+<div class="game-wrap" id="gameWrap">
+  <div class="grid" id="grid"></div>
+
+  <div class="win-overlay" id="winOverlay">
+    <div id="confettiLayer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:8px;"></div>
+    <i class="ti ti-trophy" style="font-size:56px;color:#f5c518;" aria-hidden="true"></i>
+    <div class="win-title-wrap">
+      <span class="win-s2">YOU WIN!</span>
+      <span class="win-s1">YOU WIN!</span>
+      <span class="win-main">YOU WIN!</span>
+    </div>
+    <div class="win-sub">all pairs matched!</div>
+    <div class="win-stats">
+      <div class="win-stat">
+        <span class="win-stat-val" id="finalPairs">9</span>
+        <span class="win-stat-lbl">PAIRS</span>
+      </div>
+      <div class="win-stat">
+        <span class="win-stat-val" id="finalFlips" style="color:#aaaaff;">0</span>
+        <span class="win-stat-lbl">FLIPS</span>
+      </div>
+      <div class="win-stat">
+        <span class="win-stat-val" id="finalTime" style="color:#f5c518;">0s</span>
+        <span class="win-stat-lbl">TIME</span>
+      </div>
+    </div>
+    <div class="win-btns">
+      <button class="win-btn win-btn-green" onclick="restartGame()">&#9654; PLAY AGAIN</button>
+      <button class="win-btn win-btn-blue"  onclick="backToArcade()">BACK TO ARCADE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const REVEAL_DURATION = 2000;
+const FLIP_HALF      = 0.25;
+
+const PAIRS = [
+  { id: 'star',    icon: 'ti-star',    color: '#f5c518', label: 'STAR'   },
+  { id: 'heart',   icon: 'ti-heart',   color: '#d4537e', label: 'HEART'  },
+  { id: 'bolt',    icon: 'ti-bolt',    color: '#f5e680', label: 'BOLT'   },
+  { id: 'diamond', icon: 'ti-diamond', color: '#aaaaff', label: 'GEM'    },
+  { id: 'moon',    icon: 'ti-moon',    color: '#7f77dd', label: 'MOON'   },
+  { id: 'flame',   icon: 'ti-flame',   color: '#e24b4a', label: 'FLAME'  },
+  { id: 'crown',   icon: 'ti-crown',   color: '#f5c518', label: 'CROWN'  },
+  { id: 'leaf',    icon: 'ti-leaf',    color: '#44cc44', label: 'LEAF'   },
+  { id: 'rocket',  icon: 'ti-rocket',  color: '#aaaaff', label: 'ROCKET' },
+];
+
+let cards         = [];
+let selected      = [];
+let matched       = [];
+let locked        = false;
+let flipsUsed     = 0;
+let startTime     = null;
+let timerInterval = null;
+let revealTimeout = null;
+let countdownBar  = null;
+let countdownRaf  = null;
+let countdownStart = null;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildCards() {
+  return shuffle([...PAIRS, ...PAIRS]).map((p, i) => ({ ...p, uid: i }));
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  cards.forEach((card, idx) => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.idx = idx;
+    el.innerHTML = `
+      <div class="card-inner">
+        <div class="card-face card-back">
+          <i class="ti ti-cards" aria-hidden="true"></i>
+        </div>
+        <div class="card-face card-front">
+          <i class="ti ${card.icon}" style="color:${card.color};" aria-hidden="true"></i>
+          <span class="card-lbl">${card.label}</span>
+        </div>
+      </div>`;
+    el.addEventListener('click', () => onCardClick(idx));
+    grid.appendChild(el);
+  });
+}
+
+function flipToFront(inner, onDone) {
+  gsap.to(inner, {
+    rotateY: 90, duration: FLIP_HALF, ease: 'power2.in',
+    onComplete: () => {
+      gsap.fromTo(inner,
+        { rotateY: -90 },
+        { rotateY: 180, duration: FLIP_HALF, ease: 'power2.out', onComplete: onDone || null }
+      );
+    }
+  });
+}
+
+function flipToBack(inner, onDone) {
+  gsap.to(inner, {
+    rotateY: 270, duration: FLIP_HALF, ease: 'power2.in',
+    onComplete: () => {
+      gsap.fromTo(inner,
+        { rotateY: 90 },
+        { rotateY: 0, duration: FLIP_HALF, ease: 'power2.out', onComplete: onDone || null }
+      );
+    }
+  });
+}
+
+function flipBothToFront(elA, elB, onDone) {
+  let done = 0;
+  const check = () => { if (++done === 2 && onDone) onDone(); };
+  flipToFront(elA.querySelector('.card-inner'), check);
+  setTimeout(() => flipToFront(elB.querySelector('.card-inner'), check), 80);
+}
+
+function flipBothToBack(elA, elB, onDone) {
+  let done = 0;
+  const check = () => { if (++done === 2 && onDone) onDone(); };
+  flipToBack(elA.querySelector('.card-inner'), check);
+  setTimeout(() => flipToBack(elB.querySelector('.card-inner'), check), 80);
+}
+
+function animateShuffle() {
+  const cardEls = document.querySelectorAll('.card');
+  gsap.set(cardEls, { opacity: 0, scale: 0.4, rotation: -20 });
+  gsap.to(cardEls, {
+    opacity: 1, scale: 1, rotation: 0,
+    duration: 0.45,
+    stagger: { each: 0.07, from: 'random' },
+    ease: 'back.out(1.5)'
+  });
+}
+
+function startCountdown() {
+  clearCountdown();
+  countdownBar = document.createElement('div');
+  countdownBar.className = 'countdown-bar';
+  document.getElementById('gameWrap').appendChild(countdownBar);
+  countdownStart = performance.now();
+  function tick(now) {
+    const progress = Math.min((now - countdownStart) / REVEAL_DURATION, 1);
+    countdownBar.style.width = (100 - progress * 100) + '%';
+    if (progress < 1) countdownRaf = requestAnimationFrame(tick);
+  }
+  countdownRaf = requestAnimationFrame(tick);
+}
+
+function clearCountdown() {
+  if (countdownBar) { countdownBar.remove(); countdownBar = null; }
+  if (countdownRaf) { cancelAnimationFrame(countdownRaf); countdownRaf = null; }
+}
+
+function onCardClick(idx) {
+  if (locked) return;
+  if (matched.includes(idx)) return;
+  if (selected.includes(idx)) return;
+  if (selected.length >= 2) return;
+
+  if (!startTime) {
+    startTime = Date.now();
+    timerInterval = setInterval(() => {
+      notifyStoryline('time', Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+  }
+
+  const cardEls = document.querySelectorAll('.card');
+  const el = cardEls[idx];
+  selected.push(idx);
+
+  if (selected.length === 1) {
+    el.classList.add('selected');
+    flipsUsed++;
+    notifyStoryline('flips', flipsUsed);
+    return;
+  }
+
+  if (selected.length === 2) {
+    locked = true;
+    el.classList.add('selected');
+    flipsUsed++;
+    notifyStoryline('flips', flipsUsed);
+
+    const [a, b] = selected;
+    const elA = cardEls[a];
+    const elB = cardEls[b];
+
+    flipBothToFront(elA, elB, () => {
+
+      if (cards[a].id === cards[b].id) {
+        elA.classList.remove('selected');
+        elB.classList.remove('selected');
+        elA.classList.add('matched');
+        elB.classList.add('matched');
+        gsap.fromTo(elA.querySelector('.card-inner'),
+          { scale: 1 }, { scale: 1.08, yoyo: true, repeat: 1, duration: 0.2, ease: 'power1.inOut' });
+        gsap.fromTo(elB.querySelector('.card-inner'),
+          { scale: 1 }, { scale: 1.08, yoyo: true, repeat: 1, duration: 0.2, ease: 'power1.inOut' });
+        matched.push(a, b);
+        selected = [];
+        locked = false;
+        notifyStoryline('pairs', matched.length / 2);
+        if (matched.length === cards.length) triggerWin();
+
+      } else {
+        startCountdown();
+        revealTimeout = setTimeout(() => {
+          clearCountdown();
+          elA.classList.add('no-match');
+          elB.classList.add('no-match');
+          setTimeout(() => {
+            flipBothToBack(elA, elB, () => {
+              elA.classList.remove('selected', 'no-match');
+              elB.classList.remove('selected', 'no-match');
+              selected = [];
+              locked = false;
+            });
+          }, 350);
+        }, REVEAL_DURATION);
+      }
+    });
+  }
+}
+
+function notifyStoryline(type, value) {
+  try {
+    const player = window.parent.GetPlayer();
+    if (type === 'pairs') player.SetVar('MM_PairsFound', value);
+    if (type === 'flips') player.SetVar('MM_FlipsUsed', value);
+    if (type === 'time')  player.SetVar('MM_TimeSeconds', value);
+  } catch(e) {}
+}
+
+function triggerWin() {
+  clearInterval(timerInterval);
+  const secs = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+  document.getElementById('finalFlips').textContent = flipsUsed;
+  document.getElementById('finalTime').textContent = secs + 's';
+  spawnConfetti();
+  setTimeout(() => {
+    document.getElementById('winOverlay').classList.add('show');
+    try { window.parent.GetPlayer().SetVar('MM_GameComplete', true); } catch(e) {}
+  }, 500);
+}
+
+function spawnConfetti() {
+  const layer = document.getElementById('confettiLayer');
+  const colors = ['#f5c518','#44cc44','#e24b4a','#aaaaff','#d4537e','#1d9e75','#f5e680'];
+  for (let i = 0; i < 32; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.left = Math.random() * 720 + 'px';
+    c.style.top = '-10px';
+    c.style.animationDuration = (2 + Math.random() * 3) + 's';
+    c.style.animationDelay = (Math.random() * 1.5) + 's';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.width = (6 + Math.random() * 8) + 'px';
+    c.style.height = (6 + Math.random() * 8) + 'px';
+    layer.appendChild(c);
+  }
+}
+
+function restartGame() {
+  clearInterval(timerInterval);
+  clearTimeout(revealTimeout);
+  clearCountdown();
+  document.getElementById('winOverlay').classList.remove('show');
+  document.getElementById('confettiLayer').innerHTML = '';
+  selected = []; matched = []; locked = false;
+  flipsUsed = 0; startTime = null;
+  cards = buildCards();
+  renderGrid();
+  animateShuffle();
+  notifyStoryline('pairs', 0);
+  notifyStoryline('flips', 0);
+  notifyStoryline('time', 0);
+}
+
+function backToArcade() {
+  try { window.parent.GetPlayer().GotoSlide('opening'); } catch(e) {}
+}
+
+cards = buildCards();
+renderGrid();
+animateShuffle();
+</script>
+</body>
+</html>
