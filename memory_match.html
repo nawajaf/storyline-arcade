@@ -418,13 +418,10 @@ function onCardClick(idx) {
 
 function notifyStoryline(type, value) {
   try {
-    const player = window.parent.GetPlayer();
-    if (!player) { console.warn('GetPlayer returned null'); return; }
-    if (type === 'pairs') { player.SetVar('MM_PairsFound', value); console.log('SET MM_PairsFound =', value); }
-    if (type === 'flips') { player.SetVar('MM_FlipsUsed', value);  console.log('SET MM_FlipsUsed =', value); }
-    if (type === 'time')  { player.SetVar('MM_TimeSeconds', value); }
+    window.parent.postMessage({ type: type, value: value }, '*');
+    console.log('postMessage sent:', type, value);
   } catch(e) {
-    console.error('notifyStoryline error:', e.message);
+    console.error('postMessage error:', e.message);
   }
 }
 
@@ -436,7 +433,7 @@ function triggerWin() {
   spawnConfetti();
   setTimeout(() => {
     document.getElementById('winOverlay').classList.add('show');
-    try { window.parent.GetPlayer().SetVar('MM_GameComplete', true); } catch(e) {}
+    try { window.parent.postMessage({ type: 'complete', value: true }, '*'); } catch(e) {}
   }, 500);
 }
 
@@ -474,7 +471,7 @@ function restartGame() {
 }
 
 function backToArcade() {
-  try { window.parent.GetPlayer().GotoSlide('opening'); } catch(e) {}
+  try { window.parent.postMessage({ type: 'navigate', value: 'arcade' }, '*'); } catch(e) {}
 }
 
 function scaleGrid() {
