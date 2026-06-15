@@ -22,14 +22,19 @@ body {
 }
 
 .game-wrap {
-  width: 760px;
-  height: 430px;
+  width: 100vw;
+  height: 100vh;
   background: #0d0d38;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
   position: relative;
+  overflow: hidden;
+}
+
+.grid-scaler {
+  transform-origin: center center;
 }
 
 .grid {
@@ -175,7 +180,9 @@ body {
 <body>
 
 <div class="game-wrap" id="gameWrap">
-  <div class="grid" id="grid"></div>
+  <div class="grid-scaler" id="gridScaler">
+    <div class="grid" id="grid"></div>
+  </div>
 
   <div class="win-overlay" id="winOverlay">
     <div id="confettiLayer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:8px;"></div>
@@ -412,10 +419,13 @@ function onCardClick(idx) {
 function notifyStoryline(type, value) {
   try {
     const player = window.parent.GetPlayer();
-    if (type === 'pairs') player.SetVar('MM_PairsFound', value);
-    if (type === 'flips') player.SetVar('MM_FlipsUsed', value);
-    if (type === 'time')  player.SetVar('MM_TimeSeconds', value);
-  } catch(e) {}
+    if (!player) { console.warn('GetPlayer returned null'); return; }
+    if (type === 'pairs') { player.SetVar('MM_PairsFound', value); console.log('SET MM_PairsFound =', value); }
+    if (type === 'flips') { player.SetVar('MM_FlipsUsed', value);  console.log('SET MM_FlipsUsed =', value); }
+    if (type === 'time')  { player.SetVar('MM_TimeSeconds', value); }
+  } catch(e) {
+    console.error('notifyStoryline error:', e.message);
+  }
 }
 
 function triggerWin() {
@@ -467,9 +477,22 @@ function backToArcade() {
   try { window.parent.GetPlayer().GotoSlide('opening'); } catch(e) {}
 }
 
+function scaleGrid() {
+  const scaler = document.getElementById('gridScaler');
+  const wrap = document.getElementById('gameWrap');
+  const gridW = 6 * 108 + 5 * 10;
+  const gridH = 3 * 118 + 2 * 10;
+  const availW = wrap.offsetWidth - 32;
+  const availH = wrap.offsetHeight - 32;
+  const scale = Math.min(availW / gridW, availH / gridH, 1);
+  scaler.style.transform = 'scale(' + scale + ')';
+}
+
 cards = buildCards();
 renderGrid();
 animateShuffle();
+scaleGrid();
+window.addEventListener('resize', scaleGrid);
 </script>
 </body>
 </html>
